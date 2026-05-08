@@ -1,75 +1,50 @@
-import streamlit as st
+# 1. 診断用データの強化（より厳しく）
+DEATH_WORDS = {
+    "夢のかけら": "「夢」と「かけら」の組み合わせは、グローブ的死語の典型。あまりにも古臭いです。",
+    "未来": "「明日・希望・未来」は漠然としすぎていて、リアリティの欠片もありません。",
+    "空": "「空・星・花」といった花鳥風月テーマは、逃げの表現です。具体的描写から逃げないでください。",
+    "両手を広げ": "「両手（または翼）を広げて」は完全にNGワード。安易なポーズ描写はやめましょう。",
+    "君は一人じゃない": "安易な励ましは、今の音楽シーンでは「雑音」とみなされます。",
+    "奇跡": "出会えた奇跡、なんて言葉は使い古されすぎていて、もはや誰も感動しません。"
+}
 
-# ページの設定
-st.set_page_config(page_title="AI作詞チェッカー", page_icon="🎼", layout="centered")
-
-# カスタムCSSでプロ仕様の見た目に
-st.markdown("""
-    <style>
-    .main { background-color: #f8f9fa; }
-    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #005088; color: white; }
-    </style>
-    """, unsafe_allow_html=True)
-
-st.title("🎼 AI作詞チェッカー")
-st.subheader("〜プロの採用基準であなたの歌詞を診断〜")
-st.write("グローブ・エンターブレインズ流の「勝ち技」に基づき、歌詞を客観的に評価します。")
-
-# 1. 診断用データの定義（資料に基づく）
-CLICHE_WORDS = [
-    "空", "風", "太陽", "星空", "瞳", "輝く", "奇跡", "運命", "絆", 
-    "大丈夫", "君を信じて", "トキメキ", "導火線", "シルエット", "愛してる"
-]
-
-ADJECTIVES = ["悲しい", "嬉しい", "寂しい", "切ない"]
-
-# 2. 入力フォーム
-lyric_input = st.text_area("ここに歌詞を入力してください（Aメロ〜サビなど）", height=300, placeholder="例：昨日の雨が嘘みたいに晴れた空...")
-
-# 3. 診断ロジック
-if st.button("プロの視点で診断を開始する"):
+# 3. 診断ロジック（パワーアップ版）
+if st.button("プロの視点で審査する（グローブ・エンターブレインズ流）"):
     if not lyric_input:
-        st.warning("歌詞を入力してください。")
+        st.warning("歌詞が入力されていません。審査不能です。")
     else:
         score = 100
-        feedbacks = []
+        critical_feedbacks = []
         
-        # チェック①：死語・ありきたり表現
-        found_cliches = [word for word in CLICHE_WORDS if word in lyric_input]
-        if found_cliches:
-            score -= len(found_cliches) * 10
-            feedbacks.append(f"⚠️ **ありきたりな表現:** 「{', '.join(found_cliches)}」が含まれています。これらは『死語』に近く、聴き手の心に刺さりません。具体的な固有名詞や動作に置き換えましょう。")
-
-        # チェック②：具体性の評価（数字や固有名詞のヒント）
-        import re
-        if not re.search(r'\d|時|分|曜|場所|駅|道|月', lyric_input):
-            score -= 20
-            feedbacks.append("⚠️ **情景が不明瞭:** 時間、場所、数字などの具体的なフックがありません。ドラマの舞台設定を明確にしましょう。")
-
-        # チェック③：感情の直接表現
-        found_adj = [a for a in ADJECTIVES if a in lyric_input]
-        if found_adj:
+        # ① 死語・NGフレーズの徹底チェック
+        found_death_words = [w for w in DEATH_WORDS.keys() if w in lyric_input]
+        for w in found_death_words:
             score -= 15
-            feedbacks.append(f"⚠️ **感情の直接表現:** 「{', '.join(found_adj)}」という言葉を使わずに、その時の『温度』や『風景』で感情をエグり出してください。")
+            critical_feedbacks.append(f"❌ **【死語認定】「{w}」**: {DEATH_WORDS[w]}")
 
-        # 4. 結果表示
+        # ② 描写の具体性チェック（より厳格に）
+        concrete_hooks = ["時", "分", "駅", "道", "指", "髪", "嘘", "毒", "秒"]
+        if not any(hook in lyric_input for hook in concrete_hooks):
+            score -= 25
+            critical_feedbacks.append("⚠️ **【描写不足】**: 全体的に言葉が漠然としています。もっと『臨界点をエグる』ような、特定の一人を指す具体的な仕草や時間を書いてください。")
+
+        # ③ タイトルの想定チェック（タイトルが短すぎる、または「未来」などを含む場合）
+        if len(lyric_input.split('\n')[0]) < 3 or "未来" in lyric_input.split('\n')[0]:
+            score -= 10
+            critical_feedbacks.append("📢 **【タイトル案の脆弱性】**: タイトルはキャッチコピーです。予定調和を壊す「引っかかり」のある言葉を選んでください。")
+
+        # 結果表示（NotebookLM風の厳しいトーン）
         st.divider()
-        st.header(f"スコア: {max(0, score)}点")
-        
-        if score >= 80:
-            st.success("【判定：プロ級】 独自性のある表現です。このままブラッシュアップしましょう！")
-        elif score >= 50:
-            st.warning("【判定：アマチュア級】 基礎は良いですが、言葉が一般的です。もっと「自分だけ」の表現を。")
+        if score > 80:
+            st.success(f"【総合スコア：{score}点 / 100点（合格圏内）】")
+            st.write("プロの現場でも通用する可能性があります。独自の毒とフックが効いています。")
+        elif score > 40:
+            st.warning(f"【総合スコア：{score}点 / 100点（アマチュア級）】")
+            st.write("「どこかで聴いたことのある歌」の域を出ていません。言葉を捨て、実体験をエグり出してください。")
         else:
-            st.error("【判定：やり直し】 どこかで聞いたことのある言葉ばかりです。一度全て捨てて実体験を書きましょう。")
-        
-        st.subheader("アドバイス")
-        for fb in feedbacks:
-            st.write(fb)
+            st.error(f"【総合スコア：{score}点 / 100点（プロ提出不可）】")
+            st.write("率直に申し上げて、ありきたりのオンパレードです。資料を読み直し、ゼロから書き直してください。")
 
-st.sidebar.title("プロの心得")
-st.sidebar.info("""
-- **死語を殺せ:** 「空・風・太陽」は禁止。
-- **具体的に:** 誰か一人をエグるように。
-- **スピード:** 修正依頼には即対応。
-""")
+        st.subheader("具体的ダメ出し")
+        for fb in critical_feedbacks:
+            st.markdown(fb)
